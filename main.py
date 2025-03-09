@@ -2,7 +2,7 @@ import logging
 import time
 import threading
 import json
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -16,7 +16,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 app = Flask(__name__)
 latest_odds = {}
-event = "punjab-legends-v-rajasthan-legends-v-12962641"
 
 
 def setup_driver(headless=True):
@@ -112,7 +111,7 @@ def compute_record(odds_data):
     return record
 
 
-def monitor_odds():
+def monitor_odds(event):
     url = f"https://pari-matchin.com/en/events/{event}?tab=all"
     driver = setup_driver(headless=True)
     driver.get(url)
@@ -123,7 +122,6 @@ def monitor_odds():
         logging.error("Could not retrieve market title for index 1. Exiting monitor thread.")
         driver.quit()
         return
-
     logging.info(f"Monitoring market: {market_title}")
 
     while True:
@@ -138,16 +136,21 @@ def monitor_odds():
         time.sleep(2)
 
 
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "Welcome to the Odds Monitoring API!"})
+
+
 @app.route("/odds", methods=["GET"])
 def get_odds():
-    if latest_odds:
-        return jsonify(latest_odds)
-    else:
-        return jsonify({"message": "No odds data available yet."}), 503
+    event = request.args.get("event")
+    if not event:
+        return jsonify({"error": "Event parameter is required."}), 400
+    if event not in latest_odds:
+        threading.Thread(target=monitor_odds, args=(event,), daemon=True).start()
+        return jsonify({"message": "Fetching odds. Please try again in a few seconds."}), 202
+    return jsonify(latest_odds[event])
 
 
 if __name__ == "__main__":
-    monitor_thread = threading.Thread(target=monitor_odds, daemon=True)
-    monitor_thread.start()
-
     app.run(host="0.0.0.0", port=5000, debug=True)

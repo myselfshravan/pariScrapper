@@ -1,68 +1,100 @@
 import streamlit as st
 import requests
-import time
 import pandas as pd
-import plotly.express as px
+from datetime import datetime
+import matplotlib.pyplot as plt
+from streamlit_autorefresh import st_autorefresh
 
-# Initialize session state for storing history
-if 'history' not in st.session_state:
-    st.session_state.history = pd.DataFrame(
-        columns=["timestamp", "odds_t1", "odds_t2", "probability_t1", "probability_t2", "margin"])
+# Auto-refresh the app every 2 seconds
+st_autorefresh(interval=2000, limit=None, key="odds_refresh")
 
-# Streamlit App
-st.title("Live Odds and Probability Tracker")
+if "data" not in st.session_state:
+    st.session_state["data"] = []
 
-# Endpoint URL
-URL = "http://192.168.68.104:5000/odds"
+st.title("Real-Time Odds, Probabilities & Bookmakers Margin")
 
 
-# Function to fetch data
-def fetch_data():
+def compute_margin(odds_t1, odds_t2):
     try:
-        response = requests.get(URL)
-        if response.status_code == 200:
-            return response.json()
+        o1, o2 = float(odds_t1), float(odds_t2)
+        margin = (1 / o1 + 1 / o2 - 1) * 100
+        return round(margin, 2)
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
+        st.error(f"Error computing margin: {e}")
         return None
 
 
-# Real-time update interval
-update_interval = st.slider("Update Interval (seconds)", 1, 10, 2)
+# Fetch the latest odds from the Flask endpoint
+try:
+    response = requests.get("http://192.168.68.104:5000/odds?event=india-new-zealand-12941549")
+    if response.status_code == 200:
+        new_record = response.json()
+        if not st.session_state["data"] or new_record["timestamp"] != st.session_state["data"][-1]["timestamp"]:
+            st.session_state["data"].append(new_record)
+    else:
+        st.error("Flask endpoint returned an error.")
+except Exception as e:
+    st.error(f"Error fetching odds: {e}")
 
-# Live data fetching
-placeholder = st.empty()
+if st.session_state["data"]:
+    # Convert history to DataFrame for plotting and analysis
+    df = pd.DataFrame(st.session_state["data"])
+    df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
+    df.sort_values("datetime", inplace=True)
+    df.set_index("datetime", inplace=True)
 
-while True:
-    data = fetch_data()
-    if data:
-        margin = (data["probability_t1"] + data["probability_t2"] - 1) * 100
+    df["margin"] = df.apply(lambda row: compute_margin(row["odds_t1"], row["odds_t2"]), axis=1)
 
-        new_row = pd.DataFrame([{
-            "timestamp": pd.to_datetime(data["timestamp"], unit='s'),
-            "odds_t1": float(data["odds_t1"]),
-            "odds_t2": float(data["odds_t2"]),
-            "probability_t1": data["probability_t1"] * 100,
-            "probability_t2": data["probability_t2"] * 100,
-            "margin": margin
-        }])
+    # Create two columns for charts and stats
+    col1, col2 = st.columns(2)
 
-        st.session_state.history = pd.concat([st.session_state.history, new_row], ignore_index=True)
+    with col1:
+        st.subheader("Odds Over Time")
+        # Plot odds as a line chart (converted to float)
+        odds_df = df[["odds_t1", "odds_t2"]].astype(float)
+        st.line_chart(odds_df)
 
-        # Plot Odds with Dual Axis
-        fig_odds = px.line(st.session_state.history, x="timestamp", y=["odds_t1", "odds_t2"],
-                           title="Odds Over Time", labels={"value": "Odds", "variable": "Teams"})
+        st.subheader("Full History")
+        st.dataframe(df[["odds_t1", "odds_t2", "probability_t1", "probability_t2", "margin"]].astype(float))
 
-        # Plot Probability as Stacked Area Chart
-        fig_prob = px.area(st.session_state.history, x="timestamp", y=["probability_t1", "probability_t2"],
-                           title="Probability Over Time (Stacked)",
-                           labels={"value": "Probability (%)", "variable": "Teams"},
-                           line_group=None)
+    with col2:
+        st.subheader("Latest Stats")
+        latest = st.session_state["data"][-1]
+        odds_t1 = latest["odds_t1"]
+        odds_t2 = latest["odds_t2"]
+        prob_t1 = float(latest["probability_t1"])
+        prob_t2 = float(latest["probability_t2"])
+        margin = compute_margin(odds_t1, odds_t2)
 
-        # Display graphs and metrics
-        with placeholder.container():
-            st.metric(label="Bookmaker Margin", value=f"{margin:.2f}%")
-            st.plotly_chart(fig_odds, use_container_width=True)
-            st.plotly_chart(fig_prob, use_container_width=True)
+        st.markdown(f"""
+        **Latest Odds:**  
+        - **Team 1:** {odds_t1}  
+        - **Team 2:** {odds_t2}  
 
-        time.sleep(update_interval)
+        **Latest Probabilities:**  
+        - **Team 1:** {prob_t1:.4f}  
+        - **Team 2:** {prob_t2:.4f}  
+
+        **Bookmakers Margin:** {margin}%
+        """)
+
+        # Pie chart for probability distribution
+        fig, ax = plt.subplots()
+        labels = ['Team 1', 'Team 2']
+        # Convert probabilities to percentages for display
+        sizes = [prob_t1 * 100, prob_t2 * 100]
+        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+        st.pyplot(fig)
+
+        # Probability slider as a visual gauge (non-interactive)
+        st.slider(
+            "Probability Distribution",
+            min_value=0.0,
+            max_value=1.0,
+            value=(prob_t1, prob_t2),
+            step=0.01,
+            disabled=True
+        )
+else:
+    st.info("Awaiting data from the Flask endpoint...")
