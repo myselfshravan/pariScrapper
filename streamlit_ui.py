@@ -26,7 +26,7 @@ def compute_margin(odds_t1, odds_t2):
 
 # Fetch the latest odds from the Flask endpoint
 try:
-    response = requests.get("http://127.0.0.1:5000/odds?event=gujarat-titans-punjab-kings-12844553")
+    response = requests.get("http://127.0.0.1:5000/odds?event=mumbai-indians-royal-challengers-bengaluru-12849059")
     if response.status_code == 200:
         new_record = response.json()
         if not st.session_state["data"] or new_record["timestamp"] != st.session_state["data"][-1]["timestamp"]:
