@@ -18,8 +18,8 @@
 
 
 3. **How Are Betting Odds Set by Bookmakers?**
-    - Odds are based on **implied probability**:  
-      $$ Probability = \frac{1}{Odds} $$
+    - Odds are based on **implied probability**:
+    - Probability = $$\frac{1}{Odds} $$
     - For **1.14 (India):** 87.72% probability
     - For **5.60 (Australia):** 17.86% probability
     - Total: **105.58%** (extra 5.58% is the bookmaker’s profit margin).
@@ -171,14 +171,7 @@ http://127.0.0.1:5000/odds?event=mumbai-indians-royal-challengers-bengaluru-1284
 - For odds of 1.50, the implied probability is $\frac{1}{1.50} \approx 0.6667$ or 66.67%.
 - For odds of 2.75, the implied probability is $\frac{1}{2.75} \approx 0.3636$ or 36.36%.
 
-### Bookmaker's Margin
-
-- The bookmaker's margin (also known as the overround or vigorish) is the profit margin built into the odds offered by
-  bookmakers. It ensures they can make a profit regardless of the outcome of an event.
-- It can be estimated by summing the implied probabilities of all possible outcomes:
-  $$ \text{Bookmaker's Margin} = \left(\sum \frac{1}{\text{Odds for each outcome}} - 1 \right) \times 100\% $$
-- In a two-outcome market with odds of 1.50 and 2.75, the margin is:
-  $$ \left( \frac{1}{1.50} + \frac{1}{2.75} - 1 \right) \times 100\% \approx (0.6667 + 0.3636 - 1) \times 100\% \approx 3.03\% $$
+![img.png](img.png)
 
 ### Arbitrage Betting
 
