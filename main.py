@@ -115,7 +115,7 @@ def compute_record(odds_data):
 
 def monitor_odds(event):
     global latest_odds, on_going_events
-    url = f"https://pari-matchin.com/en/events/{event}?tab=all"
+    url = f"https://parimatchglobal.com/en/events/{event}?tab=all"
     driver = setup_driver(headless=False)
     driver.get(url)
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
